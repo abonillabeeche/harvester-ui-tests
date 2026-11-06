@@ -187,15 +187,20 @@ export class VmsPage extends CruResourcePo {
     this.description().input(value?.description)
     this.cpu().input(value?.cpu)
     this.memory().input(value?.memory)
-    cy.get('.tab#Volume').click()
+    this.clickTab('Volume')
     this.image().select({ option: value?.image })
     this.diskSize().input(value?.diskSize)
     this.networks(value?.networks)
-    cy.get('.tab#advanced').click()
+    this.clickTab('advanced')
     this.usbTablet().check(value?.usbTablet)
     this.efiEnabled().check(value?.efiEnabled)
-    this.userData().input(value?.userData)
-    this.networkData().input(value?.networkData)
+    // userData() and networkData() query the editors right away, only use them when needed
+    if (value?.userData) {
+      this.userData().input(value.userData)
+    }
+    if (value?.networkData) {
+      this.networkData().input(value.networkData)
+    }
   }
 
   public save({
@@ -292,7 +297,7 @@ export class VmsPage extends CruResourcePo {
     if (networks.length === 0) {
       return
     } else {
-      cy.get('.tab#Network').click()
+      this.clickTab('Network')
 
       cy.get('[data-testid="input-hen-networkName"]').then(elms => {
         if (elms?.length < networks?.length) {

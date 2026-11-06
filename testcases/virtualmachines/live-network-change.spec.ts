@@ -104,7 +104,9 @@ describe('Change the network of a running VM via live migration', () => {
       diskSize: '4',
       networks: [{ network: bridgeNetworks[0] }],
     });
-    vmCreated = true;
+    cy.then(() => {
+      vmCreated = true;
+    });
 
     vms.waitForLiveMigratable(VM_NAME, NAMESPACE);
   });
