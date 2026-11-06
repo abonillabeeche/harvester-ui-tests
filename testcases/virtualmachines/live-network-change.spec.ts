@@ -111,10 +111,15 @@ describe('Change the network of a running VM via live migration', () => {
     vms.waitForLiveMigratable(VM_NAME, NAMESPACE);
   });
 
+  beforeEach(() => {
+    // The session is cleared between tests
+    cy.login();
+  });
+
   after(() => {
     if (vmCreated) {
       cy.login();
-      vms.delete(NAMESPACE, VM_NAME);
+      vms.deleteVMByApi(VM_NAME, NAMESPACE);
     }
   });
 
@@ -133,7 +138,7 @@ describe('Change the network of a running VM via live migration', () => {
       const target = otherBridgeNetwork(current);
 
       vms.getVmi(VM_NAME, NAMESPACE).then((vmi) => {
-        vms.goToEditConfig(VM_NAME);
+        vms.goToEditConfig(VM_NAME, NAMESPACE);
         vms.selectNicNetwork(target);
         vms.liveNetworkChangeBanner().should('be.visible').and('contain', BANNER_TEXT);
 
@@ -159,7 +164,7 @@ describe('Change the network of a running VM via live migration', () => {
       const target = otherBridgeNetwork(current);
 
       vms.getVmi(VM_NAME, NAMESPACE).then((vmi) => {
-        vms.goToEditConfig(VM_NAME);
+        vms.goToEditConfig(VM_NAME, NAMESPACE);
         vms.selectNicNetwork(target);
         vms.liveNetworkChangeBanner().should('be.visible');
         vms.setBasics('2');
@@ -191,7 +196,7 @@ describe('Change the network of a running VM via live migration', () => {
     vms.waitForLiveMigratable(VM_NAME, NAMESPACE);
 
     vms.getNicNetworkName(VM_NAME, NAMESPACE).then((current) => {
-      vms.goToEditConfig(VM_NAME);
+      vms.goToEditConfig(VM_NAME, NAMESPACE);
 
       vms.selectNicNetwork(overlayNetwork);
       vms.liveNetworkChangeBanner().should('not.exist');

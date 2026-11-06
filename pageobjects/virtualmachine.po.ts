@@ -188,7 +188,7 @@ export class VmsPage extends CruResourcePo {
     this.cpu().input(value?.cpu)
     this.memory().input(value?.memory)
     this.clickTab('Volume')
-    this.image().select({ option: value?.image })
+    this.selectImage(value?.image)
     this.diskSize().input(value?.diskSize)
     this.networks(value?.networks)
     this.clickTab('advanced')
@@ -230,6 +230,21 @@ export class VmsPage extends CruResourcePo {
 
   public image() {
     return new LabeledSelectPo('.labeled-select', `:contains("Image")`)
+  }
+
+  /**
+   * Select an image on the Volumes tab by its exact name. Options are `<namespace>/<name>`, optionally followed by
+   * ` (<storage class> / <size>)`, so a plain text match could pick another image whose name starts with the same text.
+   */
+  public selectImage(name?: string) {
+    if (!name) {
+      return
+    }
+
+    this.image().self().first().click();
+    const escaped = Cypress._.escapeRegExp(name);
+
+    cy.contains('.vs__dropdown-menu .vs__dropdown-option', new RegExp(`^\\s*([^/\\s]+/)?${escaped}(\\s+\\(.*\\))?\\s*$`)).click();
   }
 
   public diskSize() {
@@ -671,10 +686,37 @@ export class VmsPage extends CruResourcePo {
   /**
    * Open Edit Config of a VM with the latest VM from the API, e.g. after a live migration changed it
    */
-  public goToEditConfig(name: string) {
-    this.goToEdit(name);
-    cy.reload();
-    cy.get(this.footerButtons).contains('Save').should('be.visible');
+  public goToEditConfig(name: string, namespace: string = 'default') {
+    cy.visit(`/harvester/c/local/${this.type}/${namespace}/${name}?mode=edit`);
+    cy.get(this.footerButtons, { timeout: constants.timeout.maxTimeout }).contains('Save').should('be.visible');
+  }
+
+  /**
+   * Delete a VM and its disks through the API, e.g. to clean up after a suite
+   */
+  public deleteVMByApi(name: string, namespace: string = 'default') {
+    cy.request({ url: this.vmApiUrl(name, namespace), headers: { accept: 'application/json' }, failOnStatusCode: false }).then((res) => {
+      if (res.status !== 200) {
+        cy.log(`VM ${namespace}/${name} not found: ${res.status}`);
+
+        return;
+      }
+
+      const volumes: any[] = res.body?.spec?.template?.spec?.volumes || [];
+      const disks = volumes.filter((V) => V.persistentVolumeClaim).map((V) => `removedDisks=${V.name}`).join('&');
+
+      // Steve rejects a cookie-authenticated DELETE without the CSRF header
+      cy.getCookie('CSRF').then((csrf) => {
+        cy.request({
+          method: 'DELETE',
+          url: `${this.vmApiUrl(name, namespace)}?${disks}&propagationPolicy=Foreground`,
+          headers: { 'x-api-csrf': csrf?.value },
+          failOnStatusCode: false,
+        }).then((del) => {
+          expect(del.status, `Delete VM ${namespace}/${name}: ${JSON.stringify(del.body)}`).to.be.oneOf([200, 204]);
+        });
+      });
+    });
   }
 
   /**
